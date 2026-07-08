@@ -82,6 +82,37 @@ function generateAESKey() {
     return key;
 }
 
+const MAX_RECEIVE_MSG_BYTES = 64 * 1024 * 1024;
+const MAX_DOWNLOAD_MEDIA_BYTES = 16 * 1024 * 1024;
+
+function sendDownloadData(dataPtr, dataLen, fileId, cdnUrl, mediaType) {
+    if (dataLen <= 0) {
+        return;
+    }
+    if (dataLen > MAX_DOWNLOAD_MEDIA_BYTES) {
+        console.warn("[skip] download media too large: type=" + mediaType + " len=" + dataLen + " cdn_url=" + cdnUrl);
+        return;
+    }
+
+    try {
+        var buffer = dataPtr.readByteArray(dataLen);
+        if (!buffer) {
+            console.warn("[skip] download media read failed: type=" + mediaType + " len=" + dataLen + " cdn_url=" + cdnUrl);
+            return;
+        }
+        var uint8Array = new Uint8Array(buffer);
+
+        send({
+            type: "download",
+            media: Array.from(uint8Array),
+            file_id: fileId,
+            cdn_url: cdnUrl,
+        })
+    } catch (e) {
+        console.warn("[skip] download media read error: type=" + mediaType + " len=" + dataLen + " err=" + e);
+    }
+}
+
 function getProtobufRawBytes(pBuffer, scanSize) {
     const tags = [0x12, 0x1A, 0x2A, 0x42, 0x52, 0x5A];
     let uint8Array;
@@ -1852,6 +1883,10 @@ function setReceiver() {
             }
 
             const x2 = this.context.x0.toInt32();
+            if (x2 <= 0 || x2 > MAX_RECEIVE_MSG_BYTES) {
+                console.warn("[skip] receive message buffer too large: " + x2);
+                return;
+            }
             // console.log(" [+] currentPtr: ", hexdump(currentPtr, {
             //     offset: 0,
             //     length: x2,
@@ -1963,17 +1998,7 @@ function setReceiver() {
             var fileId = this.context.sp.add(0x30).readPointer().readUtf8String();
             var cdnUrl = this.context.x19.add(0x2F8).readPointer().readUtf8String();
 
-            if (dataLen > 0) {
-                var buffer = dataPtr.readByteArray(dataLen);
-                var uint8Array = new Uint8Array(buffer);
-
-                send({
-                    type: "download",
-                    media: Array.from(uint8Array),
-                    file_id: fileId,
-                    cdn_url: cdnUrl,
-                })
-            }
+            sendDownloadData(dataPtr, dataLen, fileId, cdnUrl, "file");
         }
     });
 
@@ -1984,17 +2009,7 @@ function setReceiver() {
             var fileId = this.context.x19.add(0x2E0).readPointer().readUtf8String();
             var cdnUrl = this.context.x19.add(0x2F8).readPointer().readUtf8String();
 
-            if (dataLen > 0) {
-                var buffer = dataPtr.readByteArray(dataLen);
-                var uint8Array = new Uint8Array(buffer);
-
-                send({
-                    type: "download",
-                    media: Array.from(uint8Array),
-                    file_id: fileId,
-                    cdn_url: cdnUrl,
-                })
-            }
+            sendDownloadData(dataPtr, dataLen, fileId, cdnUrl, "image");
         }
     });
 
@@ -2005,17 +2020,7 @@ function setReceiver() {
             var fileId = this.context.x22.add(0x40).readPointer().readUtf8String();
             var cdnUrl = this.context.x22.add(0x58).readPointer().readUtf8String();
 
-            if (dataLen > 0) {
-                var buffer = dataPtr.readByteArray(dataLen);
-                var uint8Array = new Uint8Array(buffer);
-
-                send({
-                    type: "download",
-                    media: Array.from(uint8Array),
-                    file_id: fileId,
-                    cdn_url: cdnUrl,
-                })
-            }
+            sendDownloadData(dataPtr, dataLen, fileId, cdnUrl, "video");
         }
     });
 }

@@ -16,4 +16,11 @@ onebot/log
 onebot/file
 onebot/videos
 .claude
-
+.gocache/
+.gomodcache/
+ai_session.md
+codex.md
+frida-devkit/
+install_frida_gadget_automated.sh
+note.md
+requirements.md

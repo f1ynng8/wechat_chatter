@@ -130,7 +130,14 @@ func SilkToMp3(silkBytes []byte) ([]byte, error) {
 }
 
 func GetFilePath(data []byte, key []byte) (string, error) {
-	block, _ := aes.NewCipher(key)
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	if len(data) == 0 || len(data)%block.BlockSize() != 0 {
+		return "", fmt.Errorf("invalid encrypted data length: %d, block_size: %d", len(data), block.BlockSize())
+	}
+
 	decrypted := make([]byte, len(data))
 	bs := block.BlockSize()
 	for i := 0; i < len(data); i += bs {
